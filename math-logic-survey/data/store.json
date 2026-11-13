@@ -1,0 +1,41 @@
+{
+  "participants": {
+    "1a3b3c456c9b4ae298514a48244b25d3": {
+      "id": "1a3b3c456c9b4ae298514a48244b25d3",
+      "nickname": "123",
+      "createdAt": "2026-11-05T11:11:26+08:00",
+      "finishedAt": "2026-11-05T11:11:59+08:00"
+    },
+    "d6c94470e5ac4583b361804872683c4d": {
+      "id": "d6c94470e5ac4583b361804872683c4d",
+      "nickname": "123",
+      "createdAt": "2026-11-05T12:52:31+08:00",
+      "finishedAt": null
+    }
+  },
+  "responses": [
+    {
+      "id": "ac8948d4cfdb4cafb6f9dce899beb1d7",
+      "seq": 1,
+      "participantId": "1a3b3c456c9b4ae298514a48244b25d3",
+      "nickname": "123",
+      "category": 2,
+      "text": "付錢不先把零錢用掉。",
+      "createdAt": "2026-11-05T11:11:44+08:00",
+      "highlight": false,
+      "adminNote": ""
+    },
+    {
+      "id": "3be39af2865a4fe0b9150a6b8a36a585",
+      "seq": 2,
+      "participantId": "1a3b3c456c9b4ae298514a48244b25d3",
+      "nickname": "123",
+      "category": 4,
+      "text": "寫程式",
+      "createdAt": "2026-11-05T11:11:55+08:00",
+      "highlight": false,
+      "adminNote": ""
+    }
+  ],
+  "nextSeq": 3
+}
