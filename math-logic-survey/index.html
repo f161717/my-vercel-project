@@ -177,6 +177,7 @@
           <label class="field-label" for="response-text">你的回答</label>
           <p class="field-help">最多 2000 個字，送出後仍可以繼續填寫下一則。</p>
           <textarea id="response-text" name="text" maxlength="2000" rows="6" placeholder="請在這裡寫下你的回答…" required></textarea>
+          <p id="response-count" class="char-count" aria-live="polite">0 / 2000</p>
           <p id="response-error" class="form-error" role="alert"></p>
 
           <div class="form-actions">
@@ -245,8 +246,12 @@
 
       <div class="viewer-controls">
         <span id="live-progress" class="viewer-progress">尚未載入</span>
-        <button type="button" id="live-next" class="btn btn-primary">下一則</button>
+        <div class="viewer-buttons">
+          <button type="button" id="live-prev" class="btn" disabled>上一則</button>
+          <button type="button" id="live-next" class="btn btn-primary">下一則</button>
+        </div>
       </div>
+      <p class="viewer-keys">投影時可用鍵盤方向鍵或簡報筆切換上一則／下一則</p>
       <p id="live-new-badge" class="new-badge" hidden>有新的回答，按「下一則」查看。</p>
       <p id="live-status" class="status-line centered"></p>
     </section>

@@ -251,6 +251,18 @@ async function initJoin() {
   const nicknameInput = $("#nickname");
   const responseForm = $("#response-form");
   const responseText = $("#response-text");
+  const responseCount = $("#response-count");
+  const maxLength = Number(responseText.getAttribute("maxlength")) || 2000;
+  const updateCount = () => {
+    if (!responseCount) return;
+    const length = responseText.value.length;
+    responseCount.textContent = `${length} / ${maxLength}`;
+    responseCount.classList.toggle("near-limit", length >= maxLength * 0.9 && length < maxLength);
+    responseCount.classList.toggle("at-limit", length >= maxLength);
+  };
+  responseText.addEventListener("input", updateCount);
+  responseForm.addEventListener("reset", () => setTimeout(updateCount, 0));
+  updateCount();
 
   const participant = getParticipant();
   if (participant) {
@@ -314,6 +326,9 @@ async function initJoin() {
     }
 
     const submitButton = $("#submit-response");
+    const submitLabel = submitButton.dataset.label || submitButton.textContent;
+    submitButton.dataset.label = submitLabel;
+    let sent = false;
     submitButton.disabled = true;
     try {
       await api("/api/responses", {
@@ -326,13 +341,22 @@ async function initJoin() {
       });
       responseForm.reset();
       responseText.value = "";
+      updateCount();
+      sent = true;
+      submitButton.textContent = "✓ 已送出";
+      submitButton.classList.add("is-done");
       showToast("已送出，可以繼續填寫下一則。");
       const firstCategory = $('input[name="category"]', responseForm);
       if (firstCategory) firstCategory.focus();
+      setTimeout(() => {
+        submitButton.textContent = submitLabel;
+        submitButton.classList.remove("is-done");
+        submitButton.disabled = false;
+      }, 1400);
     } catch (error) {
       setFormError("#response-error", error.message);
     } finally {
-      submitButton.disabled = false;
+      if (!sent) submitButton.disabled = false;
     }
   });
 
@@ -403,7 +427,32 @@ function createLiveViewer(category) {
     loading: false,
   };
 
-  const render = () => {
+  let shownId = null;
+  let shownTotal = 0;
+
+  const renderProgress = () => {
+    const progress = $("#live-progress");
+    const total = state.responses.length;
+    const grew = total > shownTotal && shownTotal > 0;
+    shownTotal = total;
+    progress.replaceChildren();
+    if (!total) {
+      progress.textContent = "尚無回答";
+    } else {
+      const count = document.createElement("span");
+      count.className = "viewer-count";
+      count.textContent = String(total);
+      if (state.responses[state.index]) {
+        progress.append(`第 ${state.index + 1} / `, count, " 則");
+      } else {
+        progress.append("共 ", count, " 則");
+      }
+      if (grew) count.classList.add("bump");
+    }
+    $("#live-prev").disabled = state.index <= 0;
+  };
+
+  const render = (direction = "") => {
     const content = $("#live-content");
     const empty = $("#live-empty");
     const newBadge = $("#live-new-badge");
@@ -412,22 +461,27 @@ function createLiveViewer(category) {
     if (!response) {
       content.hidden = true;
       empty.hidden = false;
-      $("#live-progress").textContent = state.responses.length
-        ? `共 ${state.responses.length} 則`
-        : "尚無回答";
+      shownId = null;
+      renderProgress();
       return;
     }
 
     empty.hidden = true;
     content.hidden = false;
+    if (direction && shownId !== null && shownId !== response.id) {
+      content.classList.remove("swap-next", "swap-prev");
+      void content.offsetWidth;
+      content.classList.add(direction === "prev" ? "swap-prev" : "swap-next");
+    }
+    shownId = response.id;
     $("#live-nickname").textContent = response.nickname;
     const time = $("#live-time");
     time.textContent = formatTime(response.createdAt);
     time.setAttribute("datetime", response.createdAt || "");
     $("#live-category").textContent = categoryName(response.category);
     $("#live-text").textContent = response.text;
-    $("#live-progress").textContent = `第 ${state.index + 1} / ${state.responses.length} 則`;
-    newBadge.hidden = true;
+    renderProgress();
+    if (state.index + 1 >= state.responses.length) newBadge.hidden = true;
   };
 
   const initialQuery = state.category ? `?category=${state.category}` : "";
@@ -466,12 +520,13 @@ function createLiveViewer(category) {
             if (state.index + 1 < state.responses.length) {
               state.index += 1;
             }
-            render();
+            render("next");
           } else if (state.index < 0) {
             state.index = 0;
             render();
           } else {
             $("#live-new-badge").hidden = false;
+            renderProgress();
           }
         }
       }
@@ -486,12 +541,49 @@ function createLiveViewer(category) {
     }
   };
 
-  state.timer = window.setInterval(poll, 1500);
+  let syncing = false;
+  const syncDeleted = async () => {
+    if (syncing || !state.responses.length) return;
+    syncing = true;
+    try {
+      const data = await api(`/api/responses${initialQuery}`);
+      const list = Array.isArray(data.responses) ? data.responses : [];
+      const alive = new Set(list.map((item) => item.id));
+      const current = state.responses[state.index];
+      const before = state.responses.length;
+      const kept = state.responses.filter((item) => alive.has(item.id));
+      if (kept.length === before) return;
+      const removedBefore = state.responses
+        .slice(0, Math.max(state.index, 0))
+        .filter((item) => !alive.has(item.id)).length;
+      state.responses = kept;
+      if (!kept.length) {
+        state.index = -1;
+      } else if (current && alive.has(current.id)) {
+        state.index -= removedBefore;
+      } else {
+        state.index = Math.min(Math.max(state.index - removedBefore, 0), kept.length - 1);
+      }
+      shownTotal = kept.length;
+      render(current && alive.has(current.id) ? "" : "next");
+    } catch (error) {
+      // 同步失敗就等下一輪
+    } finally {
+      syncing = false;
+    }
+  };
 
-  $("#live-next").addEventListener("click", () => {
+  let pollCount = 0;
+  state.timer = window.setInterval(() => {
+    poll();
+    pollCount += 1;
+    if (pollCount % 4 === 0) syncDeleted();
+  }, 3000);
+
+  const goNext = () => {
     if (state.index + 1 < state.responses.length) {
       state.index += 1;
-      render();
+      render("next");
       return;
     }
 
@@ -499,6 +591,40 @@ function createLiveViewer(category) {
     openModal("沒有新的資料", "目前沒有新的回覆。收到新資料時會自動顯示。", () => {
       state.noDataModal = false;
     });
+  };
+
+  const goPrev = () => {
+    if (state.index > 0) {
+      state.index -= 1;
+      render("prev");
+    }
+  };
+
+  $("#live-next").addEventListener("click", goNext);
+  $("#live-prev").addEventListener("click", goPrev);
+
+  // 鍵盤與簡報筆（簡報筆通常送出方向鍵或 PageUp/PageDown）
+  document.addEventListener("keydown", (event) => {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    const tag = (event.target && event.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    const nextKeys = ["ArrowRight", "ArrowDown", "PageDown", " "];
+    const prevKeys = ["ArrowLeft", "ArrowUp", "PageUp"];
+    if (!$("#modal").hidden) {
+      if (nextKeys.includes(event.key)) {
+        event.preventDefault();
+        closeModal(true);
+      }
+      return;
+    }
+    if (tag === "BUTTON" && event.key === " ") return;
+    if (nextKeys.includes(event.key)) {
+      event.preventDefault();
+      goNext();
+    } else if (prevKeys.includes(event.key)) {
+      event.preventDefault();
+      goPrev();
+    }
   });
 
   window.addEventListener("beforeunload", () => {
