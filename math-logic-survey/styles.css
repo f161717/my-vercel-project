@@ -785,6 +785,25 @@ select:focus {
   animation: rise-in 0.25s ease both;
 }
 
+/* 換到下一則／上一則時，從對應方向淡入 */
+#live-content.swap-next {
+  animation: swap-next 0.28s ease both;
+}
+
+#live-content.swap-prev {
+  animation: swap-prev 0.28s ease both;
+}
+
+@keyframes swap-next {
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes swap-prev {
+  from { opacity: 0; transform: translateX(-14px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;
@@ -852,6 +871,71 @@ select:focus {
   color: var(--ink-faint);
   font-size: 0.86rem;
   font-weight: 650;
+}
+
+.viewer-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.viewer-count {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 有新回答時總數輕輕跳一下 */
+.viewer-count.bump {
+  animation: count-bump 0.5s ease;
+}
+
+@keyframes count-bump {
+  0% { transform: translateY(0); color: inherit; }
+  30% { transform: translateY(-3px); color: var(--brand); }
+  100% { transform: translateY(0); color: inherit; }
+}
+
+.viewer-keys {
+  margin: 0.55rem 0 0;
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+@media (hover: none) {
+  .viewer-keys { display: none; }
+}
+
+.char-count {
+  margin: 0.3rem 0 0;
+  color: var(--ink-faint);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  transition: color 0.15s ease;
+}
+
+.char-count.near-limit {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.char-count.at-limit {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* 送出成功時按鈕短暫變成打勾 */
+.btn.is-done,
+.btn.is-done:disabled {
+  opacity: 1;
+  cursor: default;
+  animation: done-pop 0.32s ease;
+}
+
+@keyframes done-pop {
+  0% { transform: scale(0.96); }
+  60% { transform: scale(1.03); }
+  100% { transform: scale(1); }
 }
 
 .new-badge {
@@ -1401,5 +1485,16 @@ select:focus {
 
   .curated-item {
     break-inside: avoid;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
